@@ -4,7 +4,7 @@ Playwright + Python + Allure + GitHub Actions
 1. Установка
 # Клонирование репозитория
 git clone <URL-адрес репозитория>
-cd Playwright_python_inzhenerka
+cd Playwright_python_efimova
 
 # Создание виртуального окружения
 python -m venv venv
