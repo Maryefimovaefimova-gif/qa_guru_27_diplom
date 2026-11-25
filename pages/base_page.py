@@ -1,52 +1,28 @@
-from abc import ABC
-from playwright.sync_api import Page
 import allure
+from selenium.common.exceptions import StaleElementReferenceException
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+from seleniumpagefactory.Pagefactory import PageFactory
 
 
-class BasePage(ABC):
-    """
-    Абстрактный базовый класс для всех Page-Object классов.
-    Определяет общие методы и интерфейс для работы со страницами.
-    Нельзя создать экземпляр BasePage напрямую только конкретные страницы.
-    """
+class BasePage(PageFactory):
 
-    def __init__(self, page: Page, path: str = "", base_url: str = None):
-        self.page = page
-        self.path = path
-        # Получаем BASE_URL из конфигурации, если не передан явно
-        if base_url is None:
-            from tests.conftest import BASE_URL
-            base_url = BASE_URL
-        self.base_url = base_url
+    @allure.step("Получить текст уведомления")
+    def get_notification_text(self, timeout=5) -> str:
+        locator_type, value = self.locators["notification_locator"]
+        locator = (self.TYPE_OF_LOCATORS[locator_type.lower()], value)
+        visible_notification = EC.visibility_of_element_located(locator)
 
-    def navigate(self):
-        """Переход на страницу по указанному пути"""
-        self.page.goto(f"{self.base_url}{self.path}")
-        self.page.wait_for_load_state("domcontentloaded")
+        def read_visible_text(driver) -> str:
+            notification = visible_notification(driver)
+            return notification.text.strip() if notification else ""
 
-    def click(self, selector: str):
-        """Клик по элементу"""
-        self.page.locator(selector).click()
-
-    def fill(self, selector: str, text: str):
-        """Заполнение поля ввода"""
-        self.page.locator(selector).fill(text)
-
-    def get_text(self, selector: str) -> str:
-        """Получение текста элемента"""
-        return self.page.locator(selector).inner_text()
-
-    def is_visible(self, selector: str) -> bool:
-        """Проверка видимости элемента"""
-        try:
-            return self.page.locator(selector).is_visible(timeout=5000)
-        except:
-            return False
-
-    def screenshot(self, name: str):
-        """Создание скриншота и прикрепление к Allure отчету"""
-        allure.attach(
-            self.page.screenshot(full_page=True),
-            name=name,
-            attachment_type=allure.attachment_type.PNG
+        return WebDriverWait(
+            self.driver,
+            timeout,
+            poll_frequency=0.1,
+            ignored_exceptions=(StaleElementReferenceException,),
+        ).until(
+            read_visible_text,
+            message="Не появилось видимое уведомление с текстом",
         )

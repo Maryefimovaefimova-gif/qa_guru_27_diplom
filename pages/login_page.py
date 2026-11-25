@@ -1,35 +1,47 @@
-from playwright.sync_api import expect
-from pages.base_page import BasePage
 import allure
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+
+from pages.base_page import BasePage
+from utils.config import TEST_UI_URL
 
 
 class LoginPage(BasePage):
-    """Страница авторизации"""
 
-    EMAIL_INPUT = "[name=login]"
-    PASSWORD_INPUT = "[name=pass]"
-    LOGIN_BUTTON = "[type=button]"
-    LOGOUT_BUTTON = "//button[text()='Выйти']"
+    def __init__(self, driver):
+        self.driver = driver
+        self.wait = WebDriverWait(driver, 5)
+        self.url = f"{TEST_UI_URL}/login"
+        self.locators = {
+            "login_locator": ('ID', "login-username"),
+            "password_locator": ('ID', "login-password"),
+            "login_button_locator": ('xpath', '//*[@id="login-form"]/button'),
+            "notification_locator": ('css', 'div[style*="animation"]'),
+        }
 
-    def __init__(self, page, base_url: str = None):
-        """Инициализация страницы авторизаций """
-        super().__init__(page, path="", base_url=base_url)
+    @allure.step("Открыть форму")
+    def open(self):
+        self.driver.get(self.url)
 
-    @allure.step("Авторизация: {email}")
-    def login(self, email: str, password: str):
-        """Выполнение входа в систему"""
-        self.navigate()
-        # Ждём что поле email доступно для ввода (страница загружена)
-        expect(self.page.locator(self.EMAIL_INPUT)).to_be_visible(timeout=60000)
-        self.fill(self.EMAIL_INPUT, email)
-        self.fill(self.PASSWORD_INPUT, password)
-        self.click(self.LOGIN_BUTTON)
+    @allure.step("Заполнить поле Логин значением: {login}")
+    def fill_login_field(self, login):
+        self.login_locator.set_text(login)
 
-        # Ждем появления кнопки "Выйти"
-        self.page.locator(self.LOGOUT_BUTTON).wait_for(state="visible", timeout=60000)
-        self.screenshot("После авторизации")
+    @allure.step("Заполнить поле Пароль значением: {password}")
+    def fill_password_field(self, password):
+        self.password_locator.set_text(password)
 
-    @allure.step("Проверка статуса авторизации")
-    def is_logged_in(self) -> bool:
-        """Проверка, что пользователь авторизован"""
-        return self.is_visible(self.LOGOUT_BUTTON)
+    @allure.step("Нажать кнопку Войти")
+    def click_login_button(self):
+        self.login_button_locator.click()
+
+    @allure.step("Проверить редирект при логине")
+    def is_redirected(self):
+        try:
+            self.wait.until(
+                EC.url_to_be(f"{TEST_UI_URL}/")
+            )
+            return True
+        except TimeoutException:
+            return False
